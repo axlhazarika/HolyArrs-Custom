@@ -23,7 +23,8 @@ type Service struct {
 	Vault     Vault
 	SAB       SABTarget
 	Decypharr *Decypharr
-	// HTTP is the client for SABnzbd and the debrid providers; nil makes one.
+	// HTTP is the client for the debrid providers; nil makes one. SABnzbd
+	// always gets its own loopback-only client.
 	HTTP *http.Client
 	// Provider API addresses for tests; empty means the real ones.
 	RealDebridAPI, AllDebridAPI string
@@ -62,12 +63,14 @@ type TestResult struct {
 }
 
 // List returns every entry masked, what the targets hold that HolyArrs did
-// not make, and whether the targets answer. Pending entries are retried in
-// the background at most once a minute.
+// not make, and whether the targets answer. Pending Usenet servers are
+// retried in the background at most once a minute. Debrid accounts never
+// are: a page load must not rewrite Decypharr's config or restart it; they
+// go out only on a save, a remove or Push now.
 func (s *Service) List(ctx context.Context) (Listing, error) {
 	s.mu.Lock()
 	es, err := load(ctx, s.Vault)
-	retry := err == nil && slices.ContainsFunc(es, func(e Entry) bool { return e.State == StatePending || e.State == StateFailed }) &&
+	retry := err == nil && slices.ContainsFunc(es, func(e Entry) bool { return e.Kind == KindUsenet && e.State == StatePending }) &&
 		time.Since(s.lastRetry) > retryEvery
 	if retry {
 		s.lastRetry = time.Now()
@@ -122,7 +125,7 @@ func (s *Service) sab(ctx context.Context) (*sab, error) {
 	if !ok {
 		return nil, errNoSAB
 	}
-	return newSAB(base, key, s.HTTP), nil
+	return newSAB(base, key)
 }
 
 // Add stores a new entry and pushes it. The entry is kept even when the
@@ -324,8 +327,7 @@ func (s *Service) saveAndView(ctx context.Context, es []Entry, id string, by dat
 	return View{}, ErrNotFound
 }
 
-// retryPending pushes entries still pending once. A config refused as unsafe
-// is not retried: it needs the owner.
+// retryPending pushes Usenet servers still pending to SABnzbd once.
 func (s *Service) retryPending(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
@@ -335,18 +337,10 @@ func (s *Service) retryPending(ctx context.Context) {
 	if err != nil {
 		return
 	}
-	debridDone := false
 	for _, e := range es {
-		if e.State != StatePending {
-			continue
+		if e.Kind == KindUsenet && e.State == StatePending {
+			es = s.push(ctx, es, e.ID, nil)
 		}
-		if e.Kind == KindDebrid {
-			if debridDone {
-				continue
-			}
-			debridDone = true
-		}
-		es = s.push(ctx, es, e.ID, nil)
 	}
 	_ = save(ctx, s.Vault, es, database.System)
 }

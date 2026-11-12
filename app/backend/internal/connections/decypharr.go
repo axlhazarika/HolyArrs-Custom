@@ -26,8 +26,10 @@ type Decypharr struct {
 	Restart   func(ctx context.Context) error
 	Stop      func(ctx context.Context) error
 	Listeners func(ctx context.Context) ([]string, error)
-	// Wait is how long to wait for Decypharr to listen again after a restart.
-	Wait time.Duration
+	// Wait is how long to wait for Decypharr to listen again after a
+	// restart; Settle is how long it is then watched; Every is the sampling
+	// interval. Zero means 20 s, 10 s and 1 s.
+	Wait, Settle, Every time.Duration
 }
 
 // keepBackups is how many config backups are kept next to the file.
@@ -41,7 +43,7 @@ var (
 )
 
 // On says whether Decypharr is set up.
-func (d *Decypharr) On() bool { return d != nil && d.ConfigPath != "" }
+func (d *Decypharr) On() bool { return d != nil && d.ConfigPath != "" && d.Label != "" }
 
 // readConfig reads the config keeping every key and number as it was.
 func readConfig(path string) (map[string]any, error) {
@@ -89,16 +91,13 @@ func debridItems(m map[string]any) []map[string]any {
 
 func str(m map[string]any, k string) string { s, _ := m[k].(string); return s }
 
-// owner returns the entry that wrote item d: its name is the entry's name
-// or the name last pushed, and its key is the entry's key or the key last
-// pushed. Anything else was made outside HolyArrs.
+// owner returns the entry that wrote item d: its name and key are exactly
+// the name and key HolyArrs last wrote for that entry. An item made in
+// Decypharr, even one with the same name and key, is never HolyArrs'.
 func owner(d map[string]any, es []Entry) (Entry, bool) {
 	name, key := str(d, "name"), str(d, "api_key")
 	for _, e := range es {
-		if e.Kind != KindDebrid || key == "" {
-			continue
-		}
-		if (name == e.Name || name == e.PushedName && e.PushedName != "") && (key == e.Secret || key == e.PushedKey && e.PushedKey != "") {
+		if e.Kind == KindDebrid && e.PushedName != "" && e.PushedKey != "" && name == e.PushedName && key == e.PushedKey {
 			return e, true
 		}
 	}
@@ -124,6 +123,11 @@ func mergeDebrids(m map[string]any, all []Entry, gone []Entry) error {
 		if !ours {
 			if _, clash := want[str(d, "name")]; clash {
 				return fmt.Errorf("Decypharr already has an account named %q that was made outside HolyArrs; give this one another name", str(d, "name"))
+			}
+			for _, w := range want {
+				if k := str(d, "api_key"); k != "" && k == w.Secret {
+					return fmt.Errorf("Decypharr already has this key under the name %q, made outside HolyArrs; remove it there first or leave it unmanaged", str(d, "name"))
+				}
 			}
 			out = append(out, d)
 			continue
@@ -197,10 +201,14 @@ func writeConfig(path string, m map[string]any, now time.Time) error {
 		return fmt.Errorf("back up Decypharr config: %w", err)
 	}
 	pruneBackups(path)
-	b, err := json.MarshalIndent(m, "", "  ")
-	if err != nil {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(m); err != nil {
 		return err
 	}
+	b := bytes.TrimRight(buf.Bytes(), "\n")
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".config-holyarrs-*.json")
 	if err != nil {
 		return err
@@ -284,31 +292,47 @@ func (d *Decypharr) restart(ctx context.Context) error {
 		listeners = lsofListeners
 	}
 	if err := restart(ctx); err != nil {
-		return fmt.Errorf("the accounts are written, but Decypharr did not restart (start it yourself): %w", err)
+		return fmt.Errorf("the accounts are written, but Decypharr did not restart. If its launchd job is not loaded, load it with: launchctl bootstrap gui/%d ~/Library/LaunchAgents/%s.plist (%w)", os.Getuid(), d.Label, err)
 	}
-	wait := d.Wait
+	wait, settle, every := d.Wait, d.Settle, d.Every
 	if wait == 0 {
 		wait = 20 * time.Second
 	}
+	if settle == 0 {
+		settle = 10 * time.Second
+	}
+	if every == 0 {
+		every = time.Second
+	}
+	// Wait for the first listener, then keep watching: a socket opened a
+	// moment later (a peer network, a debug port) must be caught too.
 	deadline := time.Now().Add(wait)
+	var settled time.Time
 	for {
 		ls, err := listeners(ctx)
-		if err == nil && len(ls) > 0 {
+		if err == nil {
 			for _, a := range ls {
 				if !loopback(a) {
 					_ = stop(ctx)
 					return fmt.Errorf("Decypharr listened on %s, not only on 127.0.0.1; it was stopped. Check its config before starting it again", a)
 				}
 			}
+			if len(ls) > 0 && settled.IsZero() {
+				settled = time.Now().Add(settle)
+			}
+		}
+		now := time.Now()
+		if !settled.IsZero() && now.After(settled) {
 			return nil
 		}
-		if time.Now().After(deadline) {
-			return errors.New("the accounts are written and Decypharr restarted, but it is not listening yet; check it")
+		if settled.IsZero() && now.After(deadline) {
+			_ = stop(ctx)
+			return errors.New("the accounts are written, but Decypharr never started listening after the restart; it was stopped. Check its log")
 		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(time.Second):
+		case <-time.After(every):
 		}
 	}
 }

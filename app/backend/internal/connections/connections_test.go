@@ -101,6 +101,8 @@ type rig struct {
 	restarts int
 	stops    int
 	listen   []string
+	late     []string // listeners from the third sample on
+	samples  int
 }
 
 func newRig(t *testing.T) *rig {
@@ -115,10 +117,16 @@ func newRig(t *testing.T) *rig {
 	r.svc = &Service{
 		Vault: &memVault{},
 		SAB:   func(context.Context) (string, string, bool, error) { return srv.URL, "sabkey", true, nil },
-		Decypharr: &Decypharr{ConfigPath: r.cfg, Label: "test.decypharr", Wait: time.Second,
+		Decypharr: &Decypharr{ConfigPath: r.cfg, Label: "test.decypharr", Wait: 300 * time.Millisecond, Settle: 60 * time.Millisecond, Every: 10 * time.Millisecond,
 			Restart:   func(context.Context) error { r.restarts++; return nil },
 			Stop:      func(context.Context) error { r.stops++; return nil },
-			Listeners: func(context.Context) ([]string, error) { return r.listen, nil }},
+			Listeners: func(context.Context) ([]string, error) {
+				r.samples++
+				if r.late != nil && r.samples >= 3 {
+					return r.late, nil
+				}
+				return r.listen, nil
+			}},
 	}
 	return r
 }
@@ -432,5 +440,131 @@ func TestRoutesNeedAStrongCaller(t *testing.T) {
 	rt.ServeHTTP(w, req)
 	if w.Code != http.StatusOK || w.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("owner session: %d %v", w.Code, w.Header())
+	}
+}
+
+func TestDebridOutsideItemIsNeverTakenOver(t *testing.T) {
+	// Same name and same key as the item made in Decypharr: still refused.
+	r := newRig(t)
+	v, err := r.svc.Add(context.Background(), Input{Kind: KindDebrid, Provider: RealDebrid, Name: "by-hand", Secret: "handkey"}, by)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.State != StatePending || !strings.Contains(v.LastError, "outside HolyArrs") || r.restarts != 0 {
+		t.Fatalf("view %+v restarts %d", v, r.restarts)
+	}
+	// Debrid accounts sync together, so drop that one here before the next.
+	if err := r.svc.Remove(context.Background(), v.ID, true, by); err != nil {
+		t.Fatal(err)
+	}
+	// Same key under another name: refused too, so no duplicate account.
+	v, err = r.svc.Add(context.Background(), Input{Kind: KindDebrid, Provider: RealDebrid, Name: "holyarrs-realdebrid", Secret: "handkey"}, by)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.State != StatePending || !strings.Contains(v.LastError, "already has this key") || r.restarts != 0 {
+		t.Fatalf("view %+v restarts %d", v, r.restarts)
+	}
+	ds := debridItems(r.config(t))
+	if len(ds) != 1 || str(ds[0], "name") != "by-hand" || str(ds[0], "api_key") != "handkey" {
+		t.Fatalf("outside account changed: %v", ds)
+	}
+}
+
+func TestDecypharrLateNonLoopbackListenerIsCaught(t *testing.T) {
+	r := newRig(t)
+	r.late = []string{"127.0.0.1:8282", "*:4242"}
+	v, err := r.svc.Add(context.Background(), Input{Kind: KindDebrid, Provider: RealDebrid, Name: "rd", Secret: "k"}, by)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.stops != 1 || v.State != StatePending || !strings.Contains(v.LastError, "*:4242") {
+		t.Fatalf("stops %d samples %d view %+v", r.stops, r.samples, v)
+	}
+}
+
+func TestDecypharrThatNeverListensIsStopped(t *testing.T) {
+	r := newRig(t)
+	r.listen = nil
+	v, err := r.svc.Add(context.Background(), Input{Kind: KindDebrid, Provider: RealDebrid, Name: "rd", Secret: "k"}, by)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.stops != 1 || !strings.Contains(v.LastError, "never started listening") {
+		t.Fatalf("stops %d view %+v", r.stops, v)
+	}
+}
+
+func TestDecypharrNeedsPathAndLabel(t *testing.T) {
+	if (&Decypharr{ConfigPath: "/x"}).On() || (&Decypharr{Label: "x"}).On() || !(&Decypharr{ConfigPath: "/x", Label: "x"}).On() {
+		t.Fatal("On wrong")
+	}
+}
+
+func TestListNeverRestartsDecypharr(t *testing.T) {
+	r := newRig(t)
+	ctx := context.Background()
+	r.svc.Decypharr.Label = "" // not set up: the account stays pending
+	if _, err := r.svc.Add(ctx, Input{Kind: KindDebrid, Provider: RealDebrid, Name: "rd", Secret: "k"}, by); err != nil {
+		t.Fatal(err)
+	}
+	r.svc.Decypharr.Label = "test.decypharr"
+	before, _ := os.ReadFile(r.cfg)
+	if _, err := r.svc.List(ctx); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(200 * time.Millisecond) // a background retry would have run by now
+	after, _ := os.ReadFile(r.cfg)
+	if r.restarts != 0 || string(before) != string(after) {
+		t.Fatalf("a listing wrote or restarted Decypharr (restarts %d)", r.restarts)
+	}
+}
+
+func TestSABOnlyOnLoopback(t *testing.T) {
+	for _, base := range []string{"http://192.168.1.5:8085", "http://sab.example.com:8085", "ftp://127.0.0.1:8085", "http://[::ffff:10.0.0.1]:8085"} {
+		if _, err := newSAB(base, "k"); err == nil {
+			t.Errorf("%s accepted", base)
+		}
+	}
+	for _, base := range []string{"http://127.0.0.1:8085", "http://localhost:8085/", "http://[::1]:8085"} {
+		if _, err := newSAB(base, "k"); err != nil {
+			t.Errorf("%s refused: %v", base, err)
+		}
+	}
+	r := newRig(t)
+	r.svc.SAB = func(context.Context) (string, string, bool, error) { return "http://10.0.0.2:8085", "sabkey", true, nil }
+	v, err := r.svc.Add(context.Background(), usenet("Main", "right"), by)
+	if err != nil || v.State != StatePending || !strings.Contains(v.LastError, "this computer") {
+		t.Fatalf("view %+v err %v", v, err)
+	}
+}
+
+func TestSABRedirectNotFollowed(t *testing.T) {
+	hit := false
+	other := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { hit = true }))
+	defer other.Close()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, other.URL+"/api", http.StatusTemporaryRedirect)
+	}))
+	defer srv.Close()
+	c, err := newSAB(srv.URL, "sabkey")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.servers(context.Background()); err == nil || hit {
+		t.Fatalf("redirect followed (hit %v, err %v)", hit, err)
+	}
+}
+
+func TestConfigWrittenWithoutHTMLEscapes(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "c.json")
+	if err := os.WriteFile(p, []byte(`{"a":"x<y>&z"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeConfig(p, map[string]any{"a": "x<y>&z"}, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(p); !strings.Contains(string(b), "x<y>&z") {
+		t.Fatalf("escaped: %s", b)
 	}
 }

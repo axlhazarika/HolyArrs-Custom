@@ -21,7 +21,7 @@ const (
 func (s *Service) checkDebrid(ctx context.Context, e Entry) (bool, string, error) {
 	h := s.HTTP
 	if h == nil {
-		h = &http.Client{Timeout: 20 * time.Second}
+		h = &http.Client{Timeout: 20 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	}
 	var addr string
 	switch e.Provider {

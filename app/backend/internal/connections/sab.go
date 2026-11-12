@@ -6,11 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/HolyArrs/holyarrs/app/backend/internal/core/outbound"
 )
 
 // SABTarget finds the SABnzbd to push to: its address and API key. ok is
@@ -38,11 +41,33 @@ type sabServer struct {
 	Enable      int    `json:"enable"`
 }
 
-func newSAB(base, key string, h *http.Client) *sab {
-	if h == nil {
-		h = &http.Client{Timeout: 20 * time.Second}
+// errSABNotLocal means the SABnzbd downloader's address is not on this
+// computer; passwords are only ever sent to a loopback SABnzbd.
+var errSABNotLocal = errors.New("SABnzbd must run on this computer (127.0.0.1 or localhost) for HolyArrs to push Usenet servers to it")
+
+// newSAB returns a client for a SABnzbd on loopback only: the address must
+// name a loopback host, every dial is checked again (so a name cannot
+// resolve elsewhere), and redirects are not followed.
+func newSAB(base, key string) (*sab, error) {
+	u, err := url.Parse(strings.TrimRight(base, "/"))
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || !loopbackHost(u.Hostname()) {
+		return nil, errSABNotLocal
 	}
-	return &sab{base: strings.TrimRight(base, "/"), key: key, http: h}
+	dialer := outbound.PolicyDialer(func(ip net.IP) bool { return ip.IsLoopback() })
+	h := &http.Client{
+		Timeout:       20 * time.Second,
+		Transport:     &http.Transport{DialContext: dialer.DialContext, Proxy: nil},
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
+	return &sab{base: u.String(), key: key, http: h}, nil
+}
+
+func loopbackHost(h string) bool {
+	if strings.EqualFold(h, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(h)
+	return ip != nil && ip.IsLoopback()
 }
 
 func (s *sab) call(ctx context.Context, form url.Values) ([]byte, error) {
