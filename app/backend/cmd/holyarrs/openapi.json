@@ -13015,6 +13015,277 @@
         "x-holyarrs-scope": "write"
       }
     },
+    "/api/v1/connections": {
+      "get": {
+        "description": "Entries with secrets masked, entries found in SABnzbd or Decypharr that HolyArrs did not make, and whether each target is set up.",
+        "operationId": "listConnections",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The listing."
+          },
+          "403": {
+            "description": "Not the owner, or signed in without a password (the local network skip)."
+          }
+        },
+        "summary": "List Usenet servers and debrid accounts",
+        "x-holyarrs-part": "core",
+        "x-holyarrs-permission": "owner",
+        "x-holyarrs-scope": "admin"
+      },
+      "post": {
+        "description": "Saves it and pushes it to SABnzbd or Decypharr; a failed push keeps it, marked pending.",
+        "operationId": "addConnection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "kind (usenet or debrid), provider (realdebrid or alldebrid), name, host, port, ssl, username, secret, connections, priority, enabled. A secret left out or masked keeps the saved one.",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The saved entry, secret masked."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "A field is wrong."
+          },
+          "403": {
+            "description": "Not the owner, or signed in without a password (the local network skip)."
+          }
+        },
+        "summary": "Add a Usenet server or debrid account",
+        "x-holyarrs-part": "core",
+        "x-holyarrs-permission": "owner",
+        "x-holyarrs-scope": "admin"
+      }
+    },
+    "/api/v1/connections/{id}": {
+      "delete": {
+        "description": "Takes it out of SABnzbd or Decypharr, then out of HolyArrs. keepInTarget=1 only forgets it here.",
+        "operationId": "removeConnection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed."
+          },
+          "403": {
+            "description": "Not the owner, or signed in without a password (the local network skip)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "No such entry."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The target could not remove it; nothing changed."
+          }
+        },
+        "summary": "Remove a Usenet server or debrid account",
+        "x-holyarrs-part": "core",
+        "x-holyarrs-permission": "owner",
+        "x-holyarrs-scope": "admin"
+      },
+      "put": {
+        "description": "Saves the change and pushes it.",
+        "operationId": "changeConnection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "kind (usenet or debrid), provider (realdebrid or alldebrid), name, host, port, ssl, username, secret, connections, priority, enabled. A secret left out or masked keeps the saved one.",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The saved entry, secret masked."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "A field is wrong."
+          },
+          "403": {
+            "description": "Not the owner, or signed in without a password (the local network skip)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "No such entry."
+          }
+        },
+        "summary": "Change a Usenet server or debrid account",
+        "x-holyarrs-part": "core",
+        "x-holyarrs-permission": "owner",
+        "x-holyarrs-scope": "admin"
+      }
+    },
+    "/api/v1/connections/{id}/push": {
+      "post": {
+        "description": "Sends it to SABnzbd or Decypharr now.",
+        "operationId": "pushConnection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The entry with its new state."
+          },
+          "403": {
+            "description": "Not the owner, or signed in without a password (the local network skip)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "No such entry."
+          }
+        },
+        "summary": "Push a Usenet server or debrid account again",
+        "x-holyarrs-part": "core",
+        "x-holyarrs-permission": "owner",
+        "x-holyarrs-scope": "admin"
+      }
+    },
+    "/api/v1/connections/{id}/test": {
+      "post": {
+        "description": "SABnzbd connects to the server, or the provider checks the key.",
+        "operationId": "testConnection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The result; ok is false when it failed."
+          },
+          "403": {
+            "description": "Not the owner, or signed in without a password (the local network skip)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "No such entry."
+          }
+        },
+        "summary": "Test a Usenet server or debrid account",
+        "x-holyarrs-part": "core",
+        "x-holyarrs-permission": "owner",
+        "x-holyarrs-scope": "admin"
+      }
+    },
     "/api/v1/data-packs": {
       "get": {
         "description": "Owner only. Packs are size-capped original JSON definitions; import does not apply settings. Selected apply requires a current preview approval and rejects conflicts atomically.",

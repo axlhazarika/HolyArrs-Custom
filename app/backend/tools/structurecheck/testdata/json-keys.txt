@@ -399,6 +399,7 @@ deb
 decade
 decided_at
 decided_by
+decypharr
 deezer
 default
 default_off
@@ -435,6 +436,7 @@ diskspace2
 display_name
 display_priorities
 display_priority
+displayname
 distribution
 dl_info_data
 dl_info_speed
@@ -490,6 +492,7 @@ effect
 email
 emby
 emptied
+enable
 enable_torrent
 enable_usenet
 enabled
@@ -546,6 +549,7 @@ exception
 exclusions
 exists
 expected
+expiration
 expires_at
 explicit
 explicit_lyrics
@@ -674,6 +678,7 @@ guid
 h
 hand_search
 hasFile
+hasSecret
 has_4k
 has_account
 has_copy
@@ -764,6 +769,7 @@ inspection_status
 instanceName
 ip
 isAvailable
+isPremium
 isUpgrade
 is_finished
 is_private
@@ -813,6 +819,8 @@ languageProfileId
 language_profiles
 languages
 lastAired
+lastError
+lastPush
 last_activity
 last_air
 last_air_date
@@ -1235,6 +1243,7 @@ preferred_protocol
 preferred_username
 prefetch
 premiered
+premiumUntil
 prerelease
 present
 preset
@@ -1278,6 +1287,8 @@ proxy_password
 proxy_url
 public_client
 published_at
+pushedKey
+pushedName
 qbittorrent
 qid
 qualities
@@ -1491,6 +1502,7 @@ service
 services
 session_down
 session_up
+setUp
 settings
 setup_recent
 severity
@@ -1580,6 +1592,7 @@ speedlimit_abs
 spoiler
 spoken_languages
 sqlite
+ssl
 sso_links
 stable_identity
 staff_to
@@ -1779,6 +1792,7 @@ undone_at
 unfollow
 unique_user_key
 unknown
+unmanaged
 unreachable
 unresolved
 unset

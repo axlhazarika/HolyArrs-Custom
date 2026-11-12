@@ -8,6 +8,7 @@ DELETE /api/v1/auth/sessions auth=self scope=admin assurance=false part=core
 DELETE /api/v1/auth/sessions/{sid} auth=self scope=admin assurance=false part=core
 DELETE /api/v1/backups/{name} auth=owner scope=admin assurance=true part=core
 DELETE /api/v1/bridges/{id} auth=settings scope=write assurance=false part=core
+DELETE /api/v1/connections/{id} auth=unlisted scope=admin assurance=false part=core
 DELETE /api/v1/downloaders/{id} auth=settings scope=write assurance=false part=core
 DELETE /api/v1/explore/strip/counts auth=signed_in scope=write assurance=false part=media
 DELETE /api/v1/held auth=manage_library scope=write assurance=false part=media
@@ -79,6 +80,7 @@ GET /api/v1/bridges auth=manage_library scope=read assurance=false part=core
 GET /api/v1/calendar auth=signed_in scope=read assurance=false part=media
 GET /api/v1/collections auth=signed_in scope=read assurance=false part=movies
 GET /api/v1/collections/{id} auth=signed_in scope=read assurance=false part=movies
+GET /api/v1/connections auth=unlisted scope=admin assurance=false part=core
 GET /api/v1/data-packs auth=owner scope=admin assurance=false part=core
 GET /api/v1/data-packs/{id} auth=owner scope=admin assurance=false part=core
 GET /api/v1/data-packs/{id}/preview auth=owner scope=admin assurance=false part=core
@@ -338,6 +340,9 @@ POST /api/v1/bridges/test auth=settings scope=write assurance=false part=core
 POST /api/v1/bridges/{id}/check auth=settings scope=write assurance=false part=core
 POST /api/v1/collections/{id}/remove auth=manage_library scope=write assurance=false part=movies
 POST /api/v1/collections/{id}/remove/preview auth=manage_library scope=write assurance=false part=movies
+POST /api/v1/connections auth=unlisted scope=admin assurance=false part=core
+POST /api/v1/connections/{id}/push auth=unlisted scope=admin assurance=false part=core
+POST /api/v1/connections/{id}/test auth=unlisted scope=admin assurance=false part=core
 POST /api/v1/data-packs auth=owner scope=admin assurance=false part=core
 POST /api/v1/data-packs/validate auth=owner scope=admin assurance=false part=core
 POST /api/v1/data-packs/{id}/apply auth=owner scope=admin assurance=false part=core
@@ -486,6 +491,7 @@ PUT /api/v1/ask-limits/{id} auth=users scope=admin assurance=false part=wishlist
 PUT /api/v1/auth/settings auth=owner scope=admin assurance=true part=core
 PUT /api/v1/auth/sso auth=owner scope=admin assurance=true part=core
 PUT /api/v1/backups/settings auth=settings scope=write assurance=false part=core
+PUT /api/v1/connections/{id} auth=unlisted scope=admin assurance=false part=core
 PUT /api/v1/downloaders/{id} auth=settings scope=write assurance=false part=core
 PUT /api/v1/downloaders/{id}/items/{hash}/files auth=manage_library scope=admin assurance=false part=core
 PUT /api/v1/downloaders/{id}/items/{hash}/trackers auth=manage_library scope=write assurance=false part=core

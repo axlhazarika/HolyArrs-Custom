@@ -91,6 +91,13 @@ var routeOwners = map[string]Owner{
 	"GET /mcp":                Core,
 	"GET /api/v1/settings/ai": Core,
 	"PUT /api/v1/settings/ai": Core,
+	// Usenet servers and debrid accounts (custom): core.
+	"GET /api/v1/connections":                             Core,
+	"POST /api/v1/connections":                            Core,
+	"PUT /api/v1/connections/{id}":                        Core,
+	"DELETE /api/v1/connections/{id}":                     Core,
+	"POST /api/v1/connections/{id}/test":                  Core,
+	"POST /api/v1/connections/{id}/push":                  Core,
 	"GET /.well-known/oauth-protected-resource":           Core,
 	"GET /.well-known/oauth-protected-resource/{path...}": Core,
 	"GET /.well-known/oauth-authorization-server":         Core,
