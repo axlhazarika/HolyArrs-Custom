@@ -548,10 +548,14 @@ func (s *Sync) read(ctx context.Context, d domain.Downloader) error {
 	shared := false
 	ms, isMain := e.(MainSyncer)
 	switch {
-	case d.Adapter == "qbittorrent" && isMain:
+	case d.Adapter == "qbittorrent" && isMain && !s.mainFeedMissing(d.ID, gen):
 		var p MainPoll
 		p, err = s.cursors.Poll(cctx, d.ID, gen, ms)
 		jobs, scope, shared = p.Jobs, "", p.SharedSession
+		if s.noteMainFeedMissing(d.ID, gen, err) {
+			jobs, err = listCategories(cctx, e, d.Categories())
+			scope = d.Category
+		}
 	case (d.Adapter == "sabnzbd" || d.Adapter == "nzbget") && isSab(e):
 		// NZBGet answers the same two reads but has no change counter, so
 		// its history is read in full each time.
