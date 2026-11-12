@@ -52,6 +52,7 @@ export const sections: Section[] = [
 	{ href: '/settings/move', group: 'library', tint: 'teal', get label() { return t('core.settings.move.label'); }, icon: 'upload', get about() { return t('core.settings.move.about'); }, need: 'users' },
 
 	{ href: '/settings/downloaders', group: 'downloads', tint: 'green', get label() { return t('core.settings.downloaders.label'); }, icon: 'downloader', get about() { return t('core.settings.downloaders.about'); } },
+	{ href: '/settings/providers', group: 'downloads', tint: 'teal', get label() { return t('settings.providers.label'); }, icon: 'key', get about() { return t('settings.providers.about'); }, need: 'users' },
 	{ href: '/settings/sources', group: 'downloads', tint: 'blue', get label() { return t('core.settings.sources.label'); }, icon: 'source', get about() { return t('core.settings.sources.about'); } },
 	{ href: '/settings/pick-rules', group: 'downloads', tint: 'amber', get label() { return t('core.settings.pickRules.label'); }, icon: 'star', get about() { return t('core.settings.pickRules.about'); }, need: 'library' },
 	{ href: '/settings/search', group: 'downloads', tint: 'indigo', get label() { return t('core.settings.search.label'); }, icon: 'search', get about() { return t('core.settings.search.about'); } },

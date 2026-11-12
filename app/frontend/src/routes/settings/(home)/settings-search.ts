@@ -126,6 +126,8 @@ export const settingIndex: SettingEntry[] = [
 	e('/settings/tmdb', 'metadata-mode', 'Where details come from', 'metadata mode own keys off lookups privacy server independent'),
 	e('/settings/tmdb', 'metadata-keys', 'Your own keys', 'tmdb token tvdb pin mdblist fanart key api'),
 	e('/settings/tmdb', 'metadata-hosts', 'Addresses for your firewall', 'firewall hosts outside addresses allow list'),
+	e('/settings/providers', 'usenet-card', 'Usenet servers', 'usenet news server sabnzbd provider password ssl'),
+	e('/settings/providers', 'debrid-card', 'Debrid accounts', 'debrid real-debrid realdebrid alldebrid decypharr api key'),
 	e('/settings/tmdb', 'metadata-card', 'Metadata server', 'metadata tmdb posters names artwork server'),
 	e('/settings/outside-lists', '', 'Outside lists', 'tmdb list trakt list import list auto add'),
 	e('/settings/outside-lists', 'trakt-card', 'Trakt key', 'trakt key client id vip access token reviews comments'),
