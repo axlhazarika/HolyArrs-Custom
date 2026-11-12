@@ -47,6 +47,9 @@ type Target struct {
 	Edition     string
 	IDs         map[string]string
 	Naming      *mediafiles.NamingSettings
+	// Aliases and Grabbed: see grab_match.go.
+	Aliases []string
+	Grabbed bool
 }
 
 func (t Target) fileName(p releasename.Result, source string) string {
@@ -186,7 +189,7 @@ const MinConfidence = 0.7
 
 // Plan turns candidate files into copy steps for a movie.
 func Plan(cands []Candidate, t Target) []mediafiles.PlanStep {
-	ref := mediafiles.TitleRef{ID: t.TitleID, Name: t.TitleName, Year: t.Year}
+	ref := mediafiles.TitleRef{ID: t.TitleID, Name: t.TitleName, Year: t.Year, Aliases: t.Aliases, Kind: "movie"}
 	var steps []mediafiles.PlanStep
 	var mains []int
 	for _, c := range cands {
@@ -211,6 +214,9 @@ func Plan(cands []Candidate, t Target) []mediafiles.PlanStep {
 						m = fm
 					}
 				}
+			}
+			if m.Title == nil {
+				m = t.grabbedMatch(p, m, &ref)
 			}
 			s.Confidence = confidence(m.Conf)
 			if m.Title == nil {
