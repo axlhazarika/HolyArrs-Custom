@@ -34,6 +34,7 @@ var layers = map[string]int{
 	"health":       10,
 	"updates":      11,
 	"setup":        11,
+	"connections":  8, // custom: Usenet servers and debrid accounts
 }
 
 // coreRows orders the core packages. A core package imports only core
