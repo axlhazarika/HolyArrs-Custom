@@ -48,8 +48,14 @@ export interface Form {
 	enabled: boolean;
 }
 
+// The default debrid name is not a provider's plain name, which a hand-made
+// Decypharr account is likely to use already.
+export function defaultDebridName(p: 'realdebrid' | 'alldebrid'): string {
+	return `holyarrs-${p}`;
+}
+
 export function blankForm(kind: Kind): Form {
-	return { kind, provider: 'realdebrid', name: kind === 'debrid' ? 'realdebrid' : '', host: '', port: 563, ssl: true, username: '', secret: '', connections: 8, priority: 0, enabled: true };
+	return { kind, provider: 'realdebrid', name: kind === 'debrid' ? defaultDebridName('realdebrid') : '', host: '', port: 563, ssl: true, username: '', secret: '', connections: 8, priority: 0, enabled: true };
 }
 
 // An edit starts from the saved entry; the secret stays masked unless replaced.

@@ -12,7 +12,7 @@
 	import { toasts } from '#lib/core/toasts.svelte.ts';
 	import { ago } from '#lib/core/format.ts';
 	import { onMount } from 'svelte';
-	import { MASKED, blankForm, formOf, inputOf, stateWord, type Entry, type Form, type Kind, type Listing } from './providers.ts';
+	import { MASKED, blankForm, defaultDebridName, formOf, inputOf, stateWord, type Entry, type Form, type Kind, type Listing } from './providers.ts';
 
 	let loaded = $state(false);
 	let error = $state('');
@@ -136,7 +136,7 @@
 			<form class="pform" onsubmit={save} autocomplete="off">
 				{#if form.kind === 'debrid' && !form.id}
 					<Field id="pv-provider" label={t('settings.providers.provider')}>
-						<select id="pv-provider" class="input" bind:value={form.provider}>
+						<select id="pv-provider" class="input" bind:value={form.provider} onchange={() => { if (form && /^holyarrs-(realdebrid|alldebrid)$/.test(form.name)) form.name = defaultDebridName(form.provider); }}>
 							<option value="realdebrid">Real-Debrid</option>
 							<option value="alldebrid">AllDebrid</option>
 						</select>
