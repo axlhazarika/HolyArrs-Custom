@@ -42,6 +42,14 @@ var (
 	ErrUnsafeConfig = errors.New("Decypharr's config is not safe to change")
 )
 
+// WrittenError means the config was written, but what followed failed: the
+// readback, the restart or the listener check. The accounts are in the file
+// as HolyArrs wrote them, so they are recorded as HolyArrs' own.
+type WrittenError struct{ Err error }
+
+func (e *WrittenError) Error() string { return e.Err.Error() }
+func (e *WrittenError) Unwrap() error { return e.Err }
+
 // On says whether Decypharr is set up.
 func (d *Decypharr) On() bool { return d != nil && d.ConfigPath != "" && d.Label != "" }
 
@@ -272,12 +280,15 @@ func (d *Decypharr) Sync(ctx context.Context, all []Entry, gone []Entry) error {
 	}
 	back, err := readConfig(d.ConfigPath)
 	if err != nil {
-		return err
+		return &WrittenError{err}
 	}
 	if err := checkSafe(back); err != nil {
-		return err
+		return &WrittenError{err}
 	}
-	return d.restart(ctx)
+	if err := d.restart(ctx); err != nil {
+		return &WrittenError{err}
+	}
+	return nil
 }
 
 func (d *Decypharr) restart(ctx context.Context) error {

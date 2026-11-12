@@ -56,7 +56,7 @@ func newSAB(base, key string) (*sab, error) {
 	dialer := outbound.PolicyDialer(func(ip net.IP) bool { return ip.IsLoopback() })
 	h := &http.Client{
 		Timeout:       20 * time.Second,
-		Transport:     &http.Transport{DialContext: dialer.DialContext, Proxy: nil},
+		Transport:     &http.Transport{DialContext: dialer.DialContext, Proxy: nil, DisableKeepAlives: true},
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
 	return &sab{base: u.String(), key: key, http: h}, nil

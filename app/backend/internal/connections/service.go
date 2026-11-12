@@ -283,12 +283,16 @@ func (s *Service) push(ctx context.Context, es []Entry, id string, gone []Entry)
 		mark(&es[i], err, now)
 	case KindDebrid:
 		err := s.Decypharr.Sync(ctx, es, gone)
+		// Once the file is written its items are HolyArrs', even when the
+		// restart after it failed; the state still shows that error.
+		var we *WrittenError
+		written := err == nil || errors.As(err, &we)
 		for j := range es {
 			if es[j].Kind != KindDebrid {
 				continue
 			}
 			mark(&es[j], err, now)
-			if err == nil {
+			if written {
 				if es[j].Enabled {
 					es[j].PushedName, es[j].PushedKey = es[j].Name, es[j].Secret
 				} else {

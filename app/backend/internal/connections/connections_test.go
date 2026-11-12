@@ -3,6 +3,7 @@ package connections
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -95,14 +96,15 @@ const safeConfig = `{
 }`
 
 type rig struct {
-	svc      *Service
-	sab      *fakeSAB
-	cfg      string
-	restarts int
-	stops    int
-	listen   []string
-	late     []string // listeners from the third sample on
-	samples  int
+	svc         *Service
+	sab         *fakeSAB
+	cfg         string
+	restarts    int
+	failRestart bool
+	stops       int
+	listen      []string
+	late        []string // listeners from the third sample on
+	samples     int
 }
 
 func newRig(t *testing.T) *rig {
@@ -118,8 +120,14 @@ func newRig(t *testing.T) *rig {
 		Vault: &memVault{},
 		SAB:   func(context.Context) (string, string, bool, error) { return srv.URL, "sabkey", true, nil },
 		Decypharr: &Decypharr{ConfigPath: r.cfg, Label: "test.decypharr", Wait: 300 * time.Millisecond, Settle: 60 * time.Millisecond, Every: 10 * time.Millisecond,
-			Restart:   func(context.Context) error { r.restarts++; return nil },
-			Stop:      func(context.Context) error { r.stops++; return nil },
+			Restart: func(context.Context) error {
+				r.restarts++
+				if r.failRestart {
+					return errors.New("Could not find service in domain")
+				}
+				return nil
+			},
+			Stop: func(context.Context) error { r.stops++; return nil },
 			Listeners: func(context.Context) ([]string, error) {
 				r.samples++
 				if r.late != nil && r.samples >= 3 {
@@ -532,7 +540,9 @@ func TestSABOnlyOnLoopback(t *testing.T) {
 		}
 	}
 	r := newRig(t)
-	r.svc.SAB = func(context.Context) (string, string, bool, error) { return "http://10.0.0.2:8085", "sabkey", true, nil }
+	r.svc.SAB = func(context.Context) (string, string, bool, error) {
+		return "http://10.0.0.2:8085", "sabkey", true, nil
+	}
 	v, err := r.svc.Add(context.Background(), usenet("Main", "right"), by)
 	if err != nil || v.State != StatePending || !strings.Contains(v.LastError, "this computer") {
 		t.Fatalf("view %+v err %v", v, err)
@@ -566,5 +576,41 @@ func TestConfigWrittenWithoutHTMLEscapes(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(p); !strings.Contains(string(b), "x<y>&z") {
 		t.Fatalf("escaped: %s", b)
+	}
+}
+
+func TestDebridWrittenThenRestartFailedStaysOurs(t *testing.T) {
+	r := newRig(t)
+	ctx := context.Background()
+	r.failRestart = true
+	v, err := r.svc.Add(ctx, Input{Kind: KindDebrid, Provider: RealDebrid, Name: "holyarrs-realdebrid", Secret: "rdkey1"}, by)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.State != StatePending || !strings.Contains(v.LastError, "launchctl bootstrap") {
+		t.Fatalf("view %+v", v)
+	}
+	if ds := debridItems(r.config(t)); len(ds) != 2 || str(ds[1], "api_key") != "rdkey1" {
+		t.Fatalf("not written: %v", ds)
+	}
+	// The job is loaded now; the next push updates the same item in place.
+	r.failRestart = false
+	if _, err := r.svc.Change(ctx, v.ID, Input{Name: "holyarrs-realdebrid", Secret: "rdkey2"}, by); err != nil {
+		t.Fatal(err)
+	}
+	v2, err := r.svc.Push(ctx, v.ID, by)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v2.State != StateOK || v2.LastError != "" {
+		t.Fatalf("second push %+v", v2)
+	}
+	ds := debridItems(r.config(t))
+	if len(ds) != 2 || str(ds[1], "name") != "holyarrs-realdebrid" || str(ds[1], "api_key") != "rdkey2" {
+		t.Fatalf("not updated in place: %v", ds)
+	}
+	l, _ := r.svc.List(ctx)
+	if len(l.Unmanaged) != 2 { // the SAB one and by-hand only
+		t.Fatalf("our item shows as unmanaged: %+v", l.Unmanaged)
 	}
 }
