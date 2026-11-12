@@ -8,10 +8,13 @@ import (
 	"github.com/HolyArrs/holyarrs/app/backend/internal/core/database"
 )
 
-// The entries are one encrypted setting: no table, no migration.
+// The entries are one encrypted setting: no table, no migration. The
+// settings table only takes a fixed list of groups; outside-service keys
+// (Trakt and the like) live in "links", so these do too, under a key no
+// upstream setting uses.
 const (
-	settingGroup = "connections"
-	settingKey   = "entries"
+	settingGroup = "links"
+	settingKey   = "custom_connections_entries"
 )
 
 // Vault is the part of secrets.Vault the store uses.
