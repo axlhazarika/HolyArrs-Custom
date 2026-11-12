@@ -47,9 +47,9 @@ type Target struct {
 	Edition     string
 	IDs         map[string]string
 	Naming      *mediafiles.NamingSettings
-	// Aliases and Grabbed: see grab_match.go.
+	// Aliases are the Title's other names; a file may match any of them,
+	// as importing by hand allows.
 	Aliases []string
-	Grabbed bool
 }
 
 func (t Target) fileName(p releasename.Result, source string) string {
@@ -214,9 +214,6 @@ func Plan(cands []Candidate, t Target) []mediafiles.PlanStep {
 						m = fm
 					}
 				}
-			}
-			if m.Title == nil {
-				m = t.grabbedMatch(p, m, &ref)
 			}
 			s.Confidence = confidence(m.Conf)
 			if m.Title == nil {

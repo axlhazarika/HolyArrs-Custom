@@ -119,7 +119,7 @@ func (im *Importer) Import(ctx context.Context, downloadID int64, dryRun bool, b
 	defer cleanup()
 	cands = append(cands, unpacked...)
 	t := Target{LibraryPath: lf.Path, FolderName: folder, TitleID: ti.ID, TitleName: ti.Name, Year: year, SlotIDs: d.SlotIDs, IDs: ti.SourceIDs, Naming: &ns, Edition: ver.Edition,
-		Aliases: ti.Aliases, Grabbed: d.ReleaseID != nil}
+		Aliases: ti.Aliases}
 	plan := append(Plan(cands, t), bad...)
 	if unpackWhy != "" {
 		plan = append(plan, unpackStep(root, unpackWhy))
