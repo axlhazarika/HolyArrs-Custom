@@ -83,6 +83,7 @@ type DecisionView struct {
 	Versions    int       `json:"versions"` // how many Versions the Title has
 	Why         string    `json:"why"`      // ran_out, conflict, not_replaced, not_sent, taken
 	Reason      string    `json:"reason"`
+	PlanWhy     string    `json:"plan_why,omitempty"` // why the newest import plan refused the file
 	ReleaseID   *int64    `json:"release_id,omitempty"`
 	ReleaseName string    `json:"release_name,omitempty"`
 	HasCopy     bool      `json:"has_copy"`
@@ -176,6 +177,9 @@ func (a *Web) decisions(ctx context.Context, slotID int64) ([]DecisionView, erro
 		return nil, err
 	}
 	for i := range out {
+		if out[i].Why == "conflict" && out[i].DownloadID != nil {
+			out[i].PlanWhy = mediafiles.RefusedWhy(ctx, a.Store.Read(), *out[i].DownloadID)
+		}
 		if out[i].Kind == "artist" {
 			_ = a.Store.Read().QueryRowContext(ctx, `SELECT p.name FROM slots s JOIN items i ON i.id = s.item_id JOIN parts p ON p.id = i.part_id
 				WHERE s.id = ?`, out[i].SlotID).Scan(&out[i].Album)

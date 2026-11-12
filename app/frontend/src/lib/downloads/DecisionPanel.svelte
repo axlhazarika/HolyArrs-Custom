@@ -59,6 +59,7 @@
 		if (k === 'edition') return t('downloads.dp.editionUnknown');
 		if (k === 'copy') return t('downloads.dp.copyInPlace');
 		if (k === 'taken') return whyWords(d);
+		if (d.plan_why) return plainReason(d.plan_why).text;
 		const r = d.reason ? plainReason(d.reason).text : '';
 		return r || whyWords(d);
 	}

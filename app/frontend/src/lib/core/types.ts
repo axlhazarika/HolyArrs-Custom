@@ -612,6 +612,7 @@ export interface Decision {
 	versions: number;
 	why: 'ran_out' | 'conflict' | 'not_replaced' | 'not_sent' | 'taken';
 	reason: string;
+	plan_why?: string;
 	release_id?: number;
 	release_name?: string;
 	has_copy: boolean;
