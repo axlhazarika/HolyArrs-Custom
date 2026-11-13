@@ -28,6 +28,7 @@
 	import TitleSection from '#lib/ui/TitleSection.svelte';
 	import type { MenuItem } from '#lib/ui/Menu.svelte';
 	import { artistSheets, askShowSheet, quickAskSheet } from '#lib/requests/index.ts';
+	import { PlayButton } from '#lib/mediaservers/index.ts';
 	import { slotNotes, facts, keyReasons, pager, verdict, verdictTone, RenamePreview, CopyControls, deleteSummary, artName, crumbFor, qualityBadges } from '#lib/mediafiles/index.ts';
 	import { ReportSheet } from '#lib/requests/index.ts';
 	import { percent, timeLeft, groupLabel, kindTone } from '#lib/downloads/index.ts';
@@ -322,6 +323,7 @@
 				{:else if mayReport}
 					<ActionMenu label={tr('shows.page.moreActions')} caption={tr('shows.page.more')} icon="more" items={moreItems} />
 				{/if}
+				{#if files.length}<PlayButton titleId={title!.id} />{/if}
 				<FollowButton titleId={title!.id} kind="movie" />
 			{/snippet}
 		</TitleHero>

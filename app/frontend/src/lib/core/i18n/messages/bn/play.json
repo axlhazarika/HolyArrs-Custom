@@ -1,0 +1,14 @@
+{
+	"play.label": "Play in {server}",
+	"play.caption": "Play",
+	"play.notAdded": "{server} hasn't added this file yet",
+	"play.noAnswer": "{server} did not answer",
+	"play.scan": "Ask {server} to look now",
+	"play.scanAsked": "Asked {server} to look; Play turns on once it has the file",
+	"play.scanFailed": "Couldn't ask the media server",
+	"play.viewerAddress": "Address for viewers' browsers",
+	"play.viewerAddressHint": "Where Play sends people, such as http://192.168.1.20:8096. Leave empty to use the address above.",
+	"play.viewerAddressSave": "Save address",
+	"play.viewerAddressSaved": "Viewer address saved",
+	"play.viewerAddressFailed": "Couldn't save the viewer address"
+}

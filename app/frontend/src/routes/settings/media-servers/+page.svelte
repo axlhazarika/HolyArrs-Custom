@@ -9,6 +9,7 @@
 	import LoadError from '#lib/ui/LoadError.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import TestTag from '#lib/ui/TestTag.svelte';
+	import { PlayUrlField } from '#lib/mediaservers/index.ts';
 	import type { MediaServerView } from '#lib/mediaservers/index.ts';
 	import { onMount } from 'svelte';
 	import { api } from '#lib/core/api.ts';
@@ -187,6 +188,7 @@
 			<Field id="ms-url" label={t('settings.mediaServers.address')}>
 				<input id="ms-url" class="input mono" bind:value={form.url} autocomplete="off" spellcheck="false" placeholder={portHint[form.kind]} />
 			</Field>
+			{#if !isNew && isOwner && form.kind === 'jellyfin'}<PlayUrlField serverId={editing.id} />{/if}
 			<Field id="ms-token" label={form.kind === 'plex' ? t('settings.mediaServers.plexTokenLabel') : t('settings.mediaServers.apiKeyLabel')}>
 				<input id="ms-token" class="input mono" type="password" bind:value={form.token} autocomplete="new-password" />
 				<span class="hint">

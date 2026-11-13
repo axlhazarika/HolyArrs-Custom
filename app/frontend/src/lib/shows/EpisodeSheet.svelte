@@ -2,6 +2,7 @@
 	import { serverWords } from '#lib/core/i18n/server-words.ts';
 	// Side sheet for one episode: status, file facts, subtitles and history.
 	import Sheet from '#lib/ui/Sheet.svelte';
+	import { PlayButton } from '#lib/mediaservers/index.ts';
 	import Icon from '#lib/ui/Icon.svelte';
 	import Menu, { type MenuItem } from '#lib/ui/Menu.svelte';
 	import { qualityBadges } from '#lib/mediafiles/index.ts';
@@ -197,6 +198,7 @@
 						<p class="es-langs">{#if fileFacts.audio.length}<span class="muted">{t('shows.sheet.audio')}</span>{#each fileFacts.audio as l (l)}<span class="es-lang">{l}</span>{/each}{/if}{#if fileFacts.subs.length}<span class="muted">{t('shows.sheet.subtitles')}</span>{#each fileFacts.subs as l (l)}<span class="es-lang">{l}</span>{/each}{/if}</p>
 					{/if}
 					<p class="es-name" title={fileFacts.name}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg><span>{fileFacts.name}</span></p>
+					{#if ep}<div class="es-play"><PlayButton {titleId} itemId={ep.id} /></div>{/if}
 				</article>
 			{/if}
 
