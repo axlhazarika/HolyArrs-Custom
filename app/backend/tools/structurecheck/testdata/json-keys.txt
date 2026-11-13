@@ -15,8 +15,10 @@ FinalDir
 Guid
 HistoryTime
 Id
+IndexNumber
 IsAdministrator
 IsDisabled
+Items
 LastPlayedDate
 MarkStatus
 MaxParentalRating
@@ -30,10 +32,12 @@ NZBName
 Name
 ParStatus
 Parameters
+ParentIndexNumber
 Path
 PlayCount
 Policy
 ProductName
+ProductionYear
 Progress
 ProviderIds
 RemainingSizeHi
@@ -270,6 +274,7 @@ calls
 calls_24h
 can_act
 can_read
+can_scan
 candidate
 candidates
 cap
@@ -1220,6 +1225,7 @@ plan
 plan_hash
 plan_why
 plans
+play_url
 playabilityStatus
 playerStoryboardSpecRenderer
 plays

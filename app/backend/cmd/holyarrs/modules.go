@@ -23,6 +23,7 @@ func (a *handlers) ModuleRoutes(rt *webserver.Router) {
 	a.migrateHandlers().Routes(rt)
 	a.arr().Routes(rt)
 	a.connectionsService().Routes(rt)
+	a.playRoutes(rt)
 	if startup.FeatureOn(startup.AIApps) {
 		a.ai.Routes(rt)
 	}

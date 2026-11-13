@@ -636,4 +636,10 @@ var routeOwners = map[string]Owner{
 	"POST /api/v1/reports":             Core,
 	"POST /api/v1/reports/{id}/fix":    Core,
 	"POST /api/v1/reports/{id}/reopen": Core,
+
+	// Play links to the media server (custom): core.
+	"GET /api/v1/titles/{id}/play":            Core,
+	"POST /api/v1/titles/{id}/play/scan":      Core,
+	"GET /api/v1/media-servers/{id}/play-url": Core,
+	"PUT /api/v1/media-servers/{id}/play-url": Core,
 }

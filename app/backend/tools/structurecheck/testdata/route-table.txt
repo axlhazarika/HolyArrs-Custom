@@ -139,6 +139,7 @@ GET /api/v1/logs auth=users scope=admin assurance=false part=core
 GET /api/v1/logs/download auth=users scope=admin assurance=false part=core
 GET /api/v1/mcp auth=signed_in scope=mcp assurance=false part=core
 GET /api/v1/media-servers auth=settings scope=read assurance=false part=core
+GET /api/v1/media-servers/{id}/play-url auth=unlisted scope=admin assurance=false part=core
 GET /api/v1/messages auth=signed_in scope=read assurance=false part=wishlist
 GET /api/v1/metadata/album/{mbid}/follow auth=signed_in scope=read assurance=false part=music
 GET /api/v1/metadata/health auth=signed_in scope=read assurance=false part=core
@@ -233,6 +234,7 @@ GET /api/v1/titles/{id}/episode-groups auth=manage_library scope=read assurance=
 GET /api/v1/titles/{id}/episodes auth=signed_in scope=read assurance=false part=shows
 GET /api/v1/titles/{id}/follow auth=signed_in scope=read assurance=false part=wishlist
 GET /api/v1/titles/{id}/people auth=signed_in scope=read assurance=false part=title
+GET /api/v1/titles/{id}/play auth=unlisted scope=admin assurance=false part=core
 GET /api/v1/titles/{id}/releases auth=manage_library scope=read assurance=false part=title
 GET /api/v1/titles/{id}/rename auth=manage_library scope=read assurance=false part=title
 GET /api/v1/titles/{id}/search-outcome auth=signed_in scope=read assurance=false part=title
@@ -460,6 +462,7 @@ POST /api/v1/titles/refresh auth=manage_library scope=write assurance=false part
 POST /api/v1/titles/{id}/delete auth=manage_library scope=write assurance=false part=title
 POST /api/v1/titles/{id}/files/{fid}/keep-and-add auth=manage_library scope=write assurance=false part=title
 POST /api/v1/titles/{id}/move auth=manage_library scope=write assurance=false part=title
+POST /api/v1/titles/{id}/play/scan auth=unlisted scope=admin assurance=false part=core
 POST /api/v1/titles/{id}/refresh auth=manage_library scope=write assurance=false part=title
 POST /api/v1/titles/{id}/rename auth=manage_library scope=write assurance=false part=title
 POST /api/v1/titles/{id}/search auth=manage_library scope=write assurance=false part=title
@@ -502,6 +505,7 @@ PUT /api/v1/episodes/{id} auth=manage_library scope=write assurance=false part=s
 PUT /api/v1/library-folders/{id} auth=settings scope=write assurance=false part=core
 PUT /api/v1/library-folders/{id}/path auth=settings scope=write assurance=false part=core
 PUT /api/v1/media-servers/{id} auth=settings scope=write assurance=false part=core
+PUT /api/v1/media-servers/{id}/play-url auth=unlisted scope=admin assurance=false part=core
 PUT /api/v1/metadata/album/{mbid}/follow auth=signed_in scope=write assurance=false part=music
 PUT /api/v1/metadata/movie/{tmdb_id}/follow auth=signed_in scope=write assurance=false part=wishlist
 PUT /api/v1/metadata/show/{tmdb_id}/follow auth=signed_in scope=write assurance=false part=wishlist

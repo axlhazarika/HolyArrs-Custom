@@ -19356,6 +19356,123 @@
         "x-holyarrs-scope": "write"
       }
     },
+    "/api/v1/media-servers/{id}/play-url": {
+      "get": {
+        "description": "The address Play links use for the server's web app; empty means the server's own address. Owner only.",
+        "operationId": "getPlayURL",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "play_url."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "No such media server."
+          }
+        },
+        "summary": "Viewer address of a media server",
+        "x-holyarrs-part": "core",
+        "x-holyarrs-permission": "owner",
+        "x-holyarrs-scope": "admin"
+      },
+      "put": {
+        "description": "An http or https address with no path, such as http://192.168.1.20:8096; empty goes back to the server's own address. Owner only, signed in with a password.",
+        "operationId": "setPlayURL",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "play_url": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "play_url as stored."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not a plain http or https address."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not the owner, or signed in without a password."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "No such media server."
+          }
+        },
+        "summary": "Set the viewer address of a media server",
+        "x-holyarrs-part": "core",
+        "x-holyarrs-permission": "owner",
+        "x-holyarrs-scope": "admin"
+      }
+    },
     "/api/v1/media-servers/{id}/test": {
       "post": {
         "description": "Plex must list at least one movie library; Jellyfin and Emby must answer their system info with the token.",
@@ -29473,6 +29590,128 @@
         "x-holyarrs-part": "title",
         "x-holyarrs-permission": "signed_in",
         "x-holyarrs-scope": "read"
+      }
+    },
+    "/api/v1/titles/{id}/play": {
+      "get": {
+        "description": "The link into the first enabled Jellyfin's web app for the item's file, found by its path, else by the Title's ids. Opens in a new tab; the media server keeps playback, resume and history. Kid limits apply as for the Title.",
+        "operationId": "playLink",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "An episode of the Title; left out for a movie.",
+            "in": "query",
+            "name": "item",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "url (empty when there is none), state (ready, no_file, no_server, not_added, no_answer), server, why, can_scan. Never the server's key."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "item is not a number."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "No such Title, an item of another Title, or above a Kid's limit."
+          }
+        },
+        "summary": "Link to play a movie or episode in the media server",
+        "x-holyarrs-part": "core",
+        "x-holyarrs-permission": "signed_in",
+        "x-holyarrs-scope": "read"
+      }
+    },
+    "/api/v1/titles/{id}/play/scan": {
+      "post": {
+        "description": "Tells the media server about the item's folder, as an import does, and forgets what was cached. Owners and admins.",
+        "operationId": "playScan",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "An episode of the Title; left out for a movie.",
+            "in": "query",
+            "name": "item",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "url (empty when there is none), state (ready, no_file, no_server, not_added, no_answer), server, why, can_scan. Never the server's key."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not an owner or admin."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "No such Title or item."
+          }
+        },
+        "summary": "Ask the media server to look for the file now",
+        "x-holyarrs-part": "core",
+        "x-holyarrs-permission": "users",
+        "x-holyarrs-scope": "admin"
       }
     },
     "/api/v1/titles/{id}/refresh": {
