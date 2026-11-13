@@ -112,6 +112,12 @@ func (m *Manager) SyncOnce(ctx context.Context) (int, error) {
 				if len(j.Files) == 0 {
 					j.SavePath, j.Files = readFinished(j, dr.PathMap, mapLocal(m.SavePath, dr.PathMap))
 				}
+				if dr.Protocol == "torrent" {
+					var wait bool
+					if j, wait = localFinish(j, d.ID, dr.PathMap, m.now()); wait {
+						j.State, j.Progress = StateDownloading, 1 // custom: files still being written
+					}
+				}
 			} else if ok && st.failDangerous && dr.Protocol == "torrent" && len(d.FilesSeen) == 0 && j.State != StateFailed {
 				// Read the file list once, as soon as the torrent has it, so a fake fails
 				// before it downloads.
@@ -330,7 +336,7 @@ func (m *Manager) apply(ctx context.Context, dr domain.Downloader, d domain.Down
 		}
 	}
 	changed := next.State != d.State || next.Progress != d.Progress || next.Speed != d.Speed || next.UpSpeed != d.UpSpeed || next.Seeds != d.Seeds || next.Peers != d.Peers || !eqTime(next.ProgressAt, d.ProgressAt) ||
-		!eqPtr(next.ETA, d.ETA) || !eqStr(next.StateReason, d.StateReason) || next.SavePath != d.SavePath || len(next.FilesSeen) != len(d.FilesSeen)
+		!eqPtr(next.ETA, d.ETA) || !eqStr(next.StateReason, d.StateReason) || next.SavePath != d.SavePath || len(next.FilesSeen) != len(d.FilesSeen) || seenRenamed(next.FilesSeen, d.FilesSeen)
 	if !changed {
 		return isActive(next.State)
 	}
