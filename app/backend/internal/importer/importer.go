@@ -47,9 +47,7 @@ type Target struct {
 	Edition     string
 	IDs         map[string]string
 	Naming      *mediafiles.NamingSettings
-	// Aliases are the Title's other names; a file may match any of them,
-	// as importing by hand allows.
-	Aliases []string
+	Aliases     []string // the Title's other names; a file may match any, as by hand
 }
 
 func (t Target) fileName(p releasename.Result, source string) string {
