@@ -57,14 +57,18 @@ func movePackTx(ctx context.Context, tx *sql.Tx, releaseID, except int64, state 
 }
 
 // stuckPicks finds Slots chosen for a Release whose grab ended without a send:
-// no grab Job for it is queued or running, one failed or ended "not sent" and
-// its own Slot was given up, and no Download was ever made from it.
+// no grab Job for it is queued or running, one failed (or ended "not sent"
+// with the Release turned down) and its own Slot was given up, no Download
+// was ever made from it, and no send attempt for it is pending or abandoned.
 const stuckPicks = `SELECT s.id, s.chosen_release_id FROM slots s
 WHERE s.state = 'chosen' AND s.chosen_release_id IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.kind = 'grab' AND json_extract(j.params, '$.release_id') = s.chosen_release_id
       AND j.state IN ('queued', 'running'))
   AND EXISTS (SELECT 1 FROM jobs j WHERE j.kind = 'grab' AND json_extract(j.params, '$.release_id') = s.chosen_release_id
-      AND (j.state IN ('failed', 'cancelled') OR (j.state = 'done' AND json_extract(j.result, '$.not_sent') IS NOT NULL))
+      -- failed: the last try was given up. done + not_sent counts only when the
+      -- Release was turned down (giveUp's final path), not a tags decision.
+      AND (j.state = 'failed' OR (j.state = 'done' AND json_extract(j.result, '$.not_sent') IS NOT NULL
+          AND EXISTS (SELECT 1 FROM releases r WHERE r.id = s.chosen_release_id AND r.state = 'turned_down')))
       -- Only when the grab's own Slot was given up (back to wanted or moved on).
       -- A Slot still chosen for the Release is an uncertain send left for a
       -- person; one waiting on a decision (tags) keeps its pack with it.
@@ -72,6 +76,8 @@ WHERE s.state = 'chosen' AND s.chosen_release_id IS NOT NULL
       AND NOT EXISTS (SELECT 1 FROM slots g WHERE g.id = json_extract(j.subject, '$.id')
           AND ((g.state = 'chosen' AND g.chosen_release_id = s.chosen_release_id) OR g.state = 'needs_a_decision')))
   AND NOT EXISTS (SELECT 1 FROM downloads d WHERE d.release_id = s.chosen_release_id)
+  -- A send attempt still open or abandoned may have reached the Downloader.
+  AND NOT EXISTS (SELECT 1 FROM downloader_attempts a WHERE a.release_id = s.chosen_release_id AND a.state IN ('pending', 'abandoned'))
 ORDER BY s.id`
 
 // healStuckPicks frees Slots left chosen by a failed pack grab before

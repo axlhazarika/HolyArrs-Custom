@@ -191,3 +191,89 @@ func TestPackStaysWhenTheGrabSlotDidNotWait(t *testing.T) {
 		}
 	}
 }
+
+// A season pack shares one Release across its episode Slots, as an album does
+// across its tracks: a failed grab frees every episode it was chosen for.
+func TestGiveUpFreesTheWholeSeasonPack(t *testing.T) {
+	w, m := setup(t)
+	pack, other := chosenPack(t, w)
+	w.exec(t, "UPDATE titles SET kind = 'show', name = 'Copper Valley'")
+	w.exec(t, `UPDATE items SET kind = 'episode', numbers = json_object('season', 1, 'episode', id)`)
+	m.giveUp(context.Background(), w.slotID, w.relID, "sending: download not found in the Downloader", false, domain.System)
+	for _, id := range append([]int64{w.slotID}, pack...) {
+		if st, has := chosenState(t, w, id); st != string(mediafiles.SlotWanted) || has {
+			t.Errorf("episode slot %d is %s, want wanted", id, st)
+		}
+	}
+	if st, _ := chosenState(t, w, other); st != string(mediafiles.SlotChosen) {
+		t.Errorf("slot %d of another Release is %s, want left chosen", other, st)
+	}
+}
+
+// givenUpGrab is a pack whose grab Slot was already freed by the old giveUp:
+// the case the heal is for. It returns the pack mates.
+func givenUpGrab(t *testing.T, w *world, state string, result string) []int64 {
+	t.Helper()
+	pack, _ := chosenPack(t, w)
+	w.exec(t, "UPDATE slots SET state = 'wanted', chosen_release_id = NULL WHERE id = ?", w.slotID)
+	w.exec(t, `INSERT INTO jobs (created_at, created_by, updated_at, updated_by, kind, subject, params, state, run_after, asked_by, result)
+		VALUES ('2026-11-14T08:52:00Z', '{"kind":"system"}', '2026-11-14T08:55:00Z', '{"kind":"system"}', 'grab', json_object('type', 'slot', 'id', ?), json_object('release_id', ?), ?, '2026-11-14T08:52:00Z', '{"kind":"system"}', ?)`,
+		w.slotID, w.relID, state, result)
+	return pack
+}
+
+func wantChosen(t *testing.T, w *world, ids []int64, why string) {
+	t.Helper()
+	for _, id := range ids {
+		if st, _ := chosenState(t, w, id); st != string(mediafiles.SlotChosen) {
+			t.Errorf("%s: slot %d is %s, want left chosen", why, id, st)
+		}
+	}
+}
+
+// The heal leaves a pack alone when a send attempt for its Release is still
+// pending or was abandoned (it may have reached the Downloader), when the grab
+// was only cancelled, and when "not sent" came from a tags decision (the
+// Release was not turned down).
+func TestHealSkipsUnsureCases(t *testing.T) {
+	ctx := context.Background()
+	t.Run("pending attempt", func(t *testing.T) {
+		w, m := setup(t)
+		pack := givenUpGrab(t, w, "failed", "null")
+		w.exec(t, `INSERT INTO downloader_attempts (downloader_id, release_id, slot_id, marker, category, state, created_at, updated_at)
+			VALUES (1, ?, ?, 'm1', 'holyarrs', 'pending', '2026-11-14T08:52:00Z', '2026-11-14T08:52:00Z')`, w.relID, w.slotID)
+		m.healStuckPicks(ctx)
+		wantChosen(t, w, pack, "pending attempt")
+	})
+	t.Run("abandoned attempt", func(t *testing.T) {
+		w, m := setup(t)
+		pack := givenUpGrab(t, w, "failed", "null")
+		w.exec(t, `INSERT INTO downloader_attempts (downloader_id, release_id, slot_id, marker, category, state, created_at, updated_at)
+			VALUES (1, ?, ?, 'm2', 'holyarrs', 'abandoned', '2026-11-14T08:52:00Z', '2026-11-14T08:52:00Z')`, w.relID, w.slotID)
+		m.healStuckPicks(ctx)
+		wantChosen(t, w, pack, "abandoned attempt")
+	})
+	t.Run("cancelled", func(t *testing.T) {
+		w, m := setup(t)
+		pack := givenUpGrab(t, w, "cancelled", "null")
+		m.healStuckPicks(ctx)
+		wantChosen(t, w, pack, "cancelled grab")
+	})
+	t.Run("not sent, not turned down", func(t *testing.T) {
+		w, m := setup(t)
+		pack := givenUpGrab(t, w, "done", `{"not_sent":"no Downloader takes the tags"}`)
+		m.healStuckPicks(ctx)
+		wantChosen(t, w, pack, "tags not_sent")
+	})
+	t.Run("not sent, turned down", func(t *testing.T) {
+		w, m := setup(t)
+		pack := givenUpGrab(t, w, "done", `{"not_sent":"no such Release file"}`)
+		w.exec(t, "UPDATE releases SET state = 'turned_down' WHERE id = ?", w.relID)
+		m.healStuckPicks(ctx)
+		for _, id := range pack {
+			if st, _ := chosenState(t, w, id); st != string(mediafiles.SlotWanted) {
+				t.Errorf("slot %d is %s, want freed", id, st)
+			}
+		}
+	})
+}
