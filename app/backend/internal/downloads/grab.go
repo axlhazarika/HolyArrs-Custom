@@ -33,6 +33,7 @@ func (m *Manager) HandleGrab(ctx context.Context, r *jobs.Run) error {
 		// person changes tags, so the Slot waits on a decision. A Slot that moved on
 		// meanwhile refuses the change; nothing is left to do then.
 		_ = mediafiles.MoveSlot(ctx, m.Store, r.Job.Subject.ID, mediafiles.SlotNeedsADecision, te.Error(), domain.Actor{Kind: "job", ID: r.Job.ID})
+		m.packNeedsDecision(ctx, r.Job.Subject.ID, int64(relID), te.Error(), domain.Actor{Kind: "job", ID: r.Job.ID}) // custom: the pack waits with it
 		r.SetResult(map[string]any{"not_sent": te.Error()})
 		return nil
 	}

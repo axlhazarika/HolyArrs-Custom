@@ -20,6 +20,12 @@ import (
 // and returns their ids. Slots that chose another Release, or moved on, are
 // left alone.
 func freePackTx(ctx context.Context, tx *sql.Tx, releaseID, except int64, why string, by domain.Actor) ([]int64, error) {
+	return movePackTx(ctx, tx, releaseID, except, mediafiles.SlotWanted, true, why, by)
+}
+
+// movePackTx moves every other Slot still chosen for releaseID to state; clear
+// drops their chosen Release as giveUp does for the subject.
+func movePackTx(ctx context.Context, tx *sql.Tx, releaseID, except int64, state mediafiles.SlotState, clear bool, why string, by domain.Actor) ([]int64, error) {
 	rows, err := tx.QueryContext(ctx, "SELECT id FROM slots WHERE state = 'chosen' AND chosen_release_id = ? AND id != ? ORDER BY id", releaseID, except)
 	if err != nil {
 		return nil, err
@@ -38,10 +44,12 @@ func freePackTx(ctx context.Context, tx *sql.Tx, releaseID, except int64, why st
 		return nil, err
 	}
 	for _, id := range ids {
-		if _, err := tx.ExecContext(ctx, "UPDATE slots SET chosen_release_id = NULL WHERE id = ? AND state = 'chosen' AND chosen_release_id = ?", id, releaseID); err != nil {
-			return nil, err
+		if clear {
+			if _, err := tx.ExecContext(ctx, "UPDATE slots SET chosen_release_id = NULL WHERE id = ? AND state = 'chosen' AND chosen_release_id = ?", id, releaseID); err != nil {
+				return nil, err
+			}
 		}
-		if err := mediafiles.MoveSlotTx(tx, id, mediafiles.SlotWanted, why, by); err != nil {
+		if err := mediafiles.MoveSlotTx(tx, id, state, why, by); err != nil {
 			return nil, err
 		}
 	}
@@ -49,14 +57,20 @@ func freePackTx(ctx context.Context, tx *sql.Tx, releaseID, except int64, why st
 }
 
 // stuckPicks finds Slots chosen for a Release whose grab ended without a send:
-// no grab Job for it is queued or running, one failed or ended "not sent",
-// and no Download was ever made from it.
+// no grab Job for it is queued or running, one failed or ended "not sent" and
+// its own Slot was given up, and no Download was ever made from it.
 const stuckPicks = `SELECT s.id, s.chosen_release_id FROM slots s
 WHERE s.state = 'chosen' AND s.chosen_release_id IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.kind = 'grab' AND json_extract(j.params, '$.release_id') = s.chosen_release_id
       AND j.state IN ('queued', 'running'))
   AND EXISTS (SELECT 1 FROM jobs j WHERE j.kind = 'grab' AND json_extract(j.params, '$.release_id') = s.chosen_release_id
-      AND (j.state IN ('failed', 'cancelled') OR (j.state = 'done' AND json_extract(j.result, '$.not_sent') IS NOT NULL)))
+      AND (j.state IN ('failed', 'cancelled') OR (j.state = 'done' AND json_extract(j.result, '$.not_sent') IS NOT NULL))
+      -- Only when the grab's own Slot was given up (back to wanted or moved on).
+      -- A Slot still chosen for the Release is an uncertain send left for a
+      -- person; one waiting on a decision (tags) keeps its pack with it.
+      AND json_extract(j.subject, '$.type') = 'slot'
+      AND NOT EXISTS (SELECT 1 FROM slots g WHERE g.id = json_extract(j.subject, '$.id')
+          AND ((g.state = 'chosen' AND g.chosen_release_id = s.chosen_release_id) OR g.state = 'needs_a_decision')))
   AND NOT EXISTS (SELECT 1 FROM downloads d WHERE d.release_id = s.chosen_release_id)
 ORDER BY s.id`
 
@@ -117,5 +131,27 @@ func (m *Manager) healStuckPicks(ctx context.Context) {
 		for _, id := range freed {
 			m.publish("slot", map[string]any{"id": id, "state": mediafiles.SlotWanted})
 		}
+	}
+}
+
+// packNeedsDecision moves the rest of a pack to needs a decision with its grab
+// Slot, when no Downloader takes the title's tags.
+func (m *Manager) packNeedsDecision(ctx context.Context, slotID, releaseID int64, why string, by domain.Actor) {
+	var ids []int64
+	err := m.Store.Write(ctx, func(tx *sql.Tx) error {
+		var st string
+		if err := tx.QueryRowContext(ctx, "SELECT state FROM slots WHERE id = ?", slotID).Scan(&st); err != nil || st != string(mediafiles.SlotNeedsADecision) {
+			return err // the grab Slot did not move: leave the pack as it is
+		}
+		var err error
+		ids, err = movePackTx(ctx, tx, releaseID, slotID, mediafiles.SlotNeedsADecision, false, why, by)
+		return err
+	})
+	if err != nil {
+		log.Printf("downloads: moving the rest of a pack to needs a decision: %v", err)
+		return
+	}
+	for _, id := range ids {
+		m.publish("slot", map[string]any{"id": id, "state": mediafiles.SlotNeedsADecision, "reason": why})
 	}
 }

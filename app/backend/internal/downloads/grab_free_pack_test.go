@@ -129,3 +129,65 @@ func TestHealStuckPicks(t *testing.T) {
 	}
 	m.healStuckPicks(context.Background()) // nothing left: no error, no change
 }
+
+// failedGrab records a grab Job for the world's Release that failed on its
+// last attempt, with the world's Slot as its subject.
+func failedGrab(t *testing.T, w *world) {
+	t.Helper()
+	w.exec(t, `INSERT INTO jobs (created_at, created_by, updated_at, updated_by, kind, subject, params, state, run_after, asked_by, error)
+		VALUES ('2026-11-14T08:52:00Z', '{"kind":"system"}', '2026-11-14T08:55:00Z', '{"kind":"system"}', 'grab', json_object('type', 'slot', 'id', ?), json_object('release_id', ?), 'failed', '2026-11-14T08:52:00Z', '{"kind":"system"}', '{"message":"uncertain"}')`, w.slotID, w.relID)
+}
+
+// An uncertain last attempt leaves the grab's own Slot chosen for a person
+// (upstream: "An unknown outcome stays for a person"); the heal must leave
+// that pack alone, or the album could be downloaded twice.
+func TestHealLeavesAnUncertainGrabAlone(t *testing.T) {
+	w, m := setup(t)
+	pack, _ := chosenPack(t, w)
+	failedGrab(t, w) // the world's Slot is still chosen for the Release
+	m.healStuckPicks(context.Background())
+	for _, id := range append([]int64{w.slotID}, pack...) {
+		if st, has := chosenState(t, w, id); st != string(mediafiles.SlotChosen) || !has {
+			t.Errorf("slot %d is %s after an uncertain grab, want left chosen", id, st)
+		}
+	}
+}
+
+// When no Downloader takes the title's tags, the grab's Slot waits on a
+// decision and the rest of its pack waits with it; the heal leaves them.
+func TestPackWaitsOnTheDecisionWithItsGrabSlot(t *testing.T) {
+	w, m := setup(t)
+	pack, other := chosenPack(t, w)
+	ctx := context.Background()
+	if err := mediafiles.MoveSlot(ctx, w.s, w.slotID, mediafiles.SlotNeedsADecision, "no Downloader takes the tags", domain.System); err != nil {
+		t.Fatal(err)
+	}
+	m.packNeedsDecision(ctx, w.slotID, w.relID, "no Downloader takes the tags", domain.System)
+	for _, id := range pack {
+		if st, _ := chosenState(t, w, id); st != string(mediafiles.SlotNeedsADecision) {
+			t.Errorf("pack slot %d is %s, want needs_a_decision", id, st)
+		}
+	}
+	if st, _ := chosenState(t, w, other); st != string(mediafiles.SlotChosen) {
+		t.Errorf("slot %d of another Release is %s, want left chosen", other, st)
+	}
+	failedGrab(t, w)
+	m.healStuckPicks(ctx)
+	for _, id := range pack {
+		if st, _ := chosenState(t, w, id); st != string(mediafiles.SlotNeedsADecision) {
+			t.Errorf("heal moved pack slot %d to %s", id, st)
+		}
+	}
+}
+
+// The grab Slot did not move (it moved on meanwhile): the pack is left alone.
+func TestPackStaysWhenTheGrabSlotDidNotWait(t *testing.T) {
+	w, m := setup(t)
+	pack, _ := chosenPack(t, w)
+	m.packNeedsDecision(context.Background(), w.slotID, w.relID, "tags", domain.System)
+	for _, id := range pack {
+		if st, _ := chosenState(t, w, id); st != string(mediafiles.SlotChosen) {
+			t.Errorf("pack slot %d is %s, want left chosen", id, st)
+		}
+	}
+}
