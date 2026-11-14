@@ -371,7 +371,9 @@ func (m *Manager) Grab(ctx context.Context, slotID, releaseID int64, by domain.A
 // meanwhile is left as it is.
 func (m *Manager) giveUp(ctx context.Context, slotID, releaseID int64, reason string, turnDown bool, by domain.Actor) {
 	freed := false
+	var others []int64
 	err := m.Store.Write(ctx, func(tx *sql.Tx) error {
+		others = nil
 		res, err := tx.ExecContext(ctx, "UPDATE slots SET chosen_release_id = NULL WHERE id = ? AND state = 'chosen' AND chosen_release_id = ?", slotID, releaseID)
 		if err != nil {
 			return err
@@ -387,12 +389,18 @@ func (m *Manager) giveUp(ctx context.Context, slotID, releaseID int64, reason st
 			}
 		}
 		freed = true
-		return mediafiles.MoveSlotTx(tx, slotID, mediafiles.SlotWanted, "not sent: "+reason, by)
+		if err := mediafiles.MoveSlotTx(tx, slotID, mediafiles.SlotWanted, "not sent: "+reason, by); err != nil {
+			return err
+		}
+		others, err = freePackTx(ctx, tx, releaseID, slotID, "not sent: "+reason, by) // custom: the rest of the pack
+		return err
 	})
 	if err != nil || !freed {
 		return
 	}
-	m.publish("slot", map[string]any{"id": slotID, "state": mediafiles.SlotWanted, "reason": reason})
+	for _, id := range append([]int64{slotID}, others...) {
+		m.publish("slot", map[string]any{"id": id, "state": mediafiles.SlotWanted, "reason": reason})
+	}
 	if turnDown && m.OnFailed != nil {
 		m.OnFailed(ctx, slotID)
 	}

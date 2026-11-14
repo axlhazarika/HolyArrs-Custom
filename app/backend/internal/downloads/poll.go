@@ -171,6 +171,7 @@ func (m *Manager) Run(ctx context.Context) {
 	}
 	w := m.wake
 	m.mu.Unlock()
+	m.healStuckPicks(ctx) // custom: Slots a failed pack grab left chosen
 	every := m.HealthEvery
 	if every <= 0 {
 		every = time.Minute
