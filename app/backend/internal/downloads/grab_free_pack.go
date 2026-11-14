@@ -63,6 +63,15 @@ ORDER BY s.id`
 // healStuckPicks frees Slots left chosen by a failed pack grab before
 // freePackTx existed. It runs once when the Manager starts.
 func (m *Manager) healStuckPicks(ctx context.Context) {
+	// Look first on a read connection: almost always nothing is stuck, and a
+	// write at start would hold the store while the readers start.
+	var stuck int64
+	if err := m.Store.Read().QueryRowContext(ctx, "SELECT COUNT(*) FROM ("+stuckPicks+")").Scan(&stuck); err != nil || stuck == 0 {
+		if err != nil {
+			log.Printf("downloads: looking for Slots left chosen by a failed grab: %v", err)
+		}
+		return
+	}
 	var freed []int64
 	err := m.Store.Write(ctx, func(tx *sql.Tx) error {
 		freed = freed[:0]
